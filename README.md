@@ -18,33 +18,33 @@ POST /login
 
 Once authenticated you can access the secure routes by adding token returned by login under header key x-access-token 
 
-GET /users
-POST /users
-	username
-	password
-	confirmPassword
-PUT /users/id
-	username
-	password
-	confirmPassword
-DELETE /users/id
-GET /articles
-POST /articles
-	title
-	image
-	description
-	publishDate
-	modifyDate
-PUT /articles/id
-	title
-	image
-	description
-	publishDate
-	modifyDate
-DELETE /articles/id
-POST /images
-	filename (type file)
-GET /images/id
+GET /users  
+POST /users  
+	username  
+	password  
+	confirmPassword  
+PUT /users/id  
+	username  
+	password  
+	confirmPassword  
+DELETE /users/id  
+GET /articles  
+POST /articles  
+	title  
+	image  
+	description  
+	publishDate  
+	modifyDate  
+PUT /articles/id  
+	title  
+	image  
+	description  
+	publishDate  
+	modifyDate  
+DELETE /articles/id  
+POST /images  
+	filename (type file)  
+GET /images/id  
 
 
 
