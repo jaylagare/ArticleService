@@ -80,7 +80,7 @@ app.use(function(req, res, next) {
 // about server
 app.get('/', function(req, res) {
 	console.log('/');
-    data = config.applicationString+' v'+config.versionString+' ('+config.buildString+')'+'<br>';
+    data = config.applicationString+' v'+config.versionString+' ('+config.buildString+')';
     res.send(data);
 });
 
