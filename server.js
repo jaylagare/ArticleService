@@ -319,7 +319,7 @@ apiRoutes.post('/users', function(req, res, next) {
     });
 });
 
-apiRoutes.put('/user/:id', function(req, res, next) {
+apiRoutes.put('/users/:id', function(req, res, next) {
     var id = req.params.id;
     var user = req.body;
     if (!(user.username && user.password && user.confirmPassword)) {
