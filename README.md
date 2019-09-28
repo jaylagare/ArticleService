@@ -16,7 +16,7 @@ POST /login
 	username
 	password
 
-Once authenticated you can access the secure routes by adding token returned by login under header kay x-access-token 
+Once authenticated you can access the secure routes by adding token returned by login under header key x-access-token 
 
 GET /users
 POST /users
