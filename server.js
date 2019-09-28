@@ -16,6 +16,10 @@ const fs = require("fs");
 const fileType = require('file-type');
 const mongo = require("mongodb");
 
+// JWT
+var jwt = require('jsonwebtoken'); // used to create, sign, and verify tokens
+var secret = "secret";
+
 // DATABASE
 var ObjectID = mongo.ObjectID;    
 var MongoClient = mongo.MongoClient;
@@ -80,12 +84,329 @@ app.get('/', function(req, res) {
     res.send(data);
 });
 
+app.post('/login', function(req, res) {
+    console.log('login');
+
+    var username = req.body.username || req.query.username;
+    var password = req.body.password || req.query.password;
+    var user = {username : username, password : password};
+
+    db.collection('users', function(err, users) {
+        if (err) {
+            res.send({'error' : error.errmsg});
+            return;
+        }
+
+        users.findOne({'username' : username }, function(err, user) {
+            if (err) {
+                res.send({'error' : error.errmsg});
+                return;
+            }
+
+            // authenticated
+            if (user && user.password == password) {
+
+                // generate JWT
+                var token = jwt.sign(user, secret, {
+                        expiresIn: "24h" // expires in 24 hours
+                    }, 
+                    function(err, token) {
+                        if (err) {
+                            res.status(501);
+                            res.json({
+                                success: false,
+                                message: 'Error in token generation.'
+                            });
+                        }
+
+                        var tokenExpiry = new Date().getTime() + (24 * 60 * 60 * 1000); // 24 hours
+                        // var tokenExpiry = new Date().getTime() + (5 * 60 * 1000); // 5 minutes; FOR TESTING
+                        // return the information including token as JSON
+                        res.status(200);
+                        res.json({
+                            success: true,
+                            message: 'Log in successful',
+                            token: token,
+                            tokenExpiry : tokenExpiry
+                        });
+                        res.end();              
+                    }
+                );
+            } else {
+                res.status(401);
+                res.json({
+                    success: false,
+                    message: 'Log in failed',
+                });
+                res.end();              
+            }
+        });
+    });
+});
+
 // SECURED ROUTES 
 // TODO: SECURE THESE ENDPOINTS WITH APPROPRIATE AUTHENTICATION/AUTHORIZATION MECHANISM
 // get an instance of the router for api routes
 var apiRoutes = express.Router(); 
 
 apiRoutes.use(cors());
+
+// utility method
+function errorResponse(res, statusCode, statusMessage) {
+    res.status(statusCode);
+    res.json({
+        success : false,
+        message : statusMessage
+    });        
+    res.end();
+}
+
+apiRoutes.use(function(req, res, next) {
+    // disable by short circuiting
+    // next(); return;
+
+    // check header or url parameters or post parameters for token
+    var token = req.body.token || req.query.token || req.headers['x-access-token'];
+
+    // decode token
+    if (token) {
+        // verifies secret and checks exp
+        // jwt.verify(token, app.get('superSecret'), function(err, decoded) {      
+        jwt.verify(token, secret, function(err, decodedToken) {      
+            if (err) {
+                errorResponse(res, 403, "Invalid security token.");
+                return;
+            } else {
+                // re-verify username and password (in case user has been deleted by admin)
+                var username = decodedToken.username;
+                var password = decodedToken.password;
+                // todo
+
+                // if everything is good, save to request for use in other routes
+                req.decodedToken = decodedToken;  
+
+                if (req.method == 'POST') {
+                    req.body.dateCreate = new Date().toISOString();
+                    req.body.userCreate = username;
+                }  
+                if (req.method == 'PUT') {
+                    req.body.dateUpdate = new Date().toISOString();
+                    req.body.userUpdate = username;
+                }
+
+                // force date field to UTC Z format
+                if (req.body.date) {
+                    var date = req.body.date;
+                    if (!(date instanceof Date)) { // not a Date (probaby string), try to make Date from it
+                        date = new Date(date);
+                        if (isNaN(date.getTime())) { // invalid date, create own
+                            date = new Date(); 
+                        }
+                    }
+                    req.body.date = date.toISOString();
+                }
+
+                next();
+            }
+        });
+    } else {
+        // if there is no token
+        // return an error
+        errorResponse(res, 403, "Missing security token.");
+        return;
+    }
+});
+
+// USERS
+apiRoutes.get('/users', function(req, res, next) {
+    console.log('Retrieving users');
+    db.collection('users', function(err, collection) {
+        if (err) {
+            res.send({'error' : err.errmsg});
+            return;
+        }
+
+        collection.find().toArray(function(err, users) {
+            if (err) {
+                res.send({'error' : err.errmsg});
+                return;
+            }
+
+            res.send(users);
+        });
+    });
+
+});
+
+apiRoutes.get('/users/:id', function(req, res, next) {
+    var id = req.params.id;
+
+    console.log('Retrieving user ' + id);
+    db.collection('users', function(err, collection) {
+        if (err) {
+            res.send({'error' : err.errmsg});
+            return;
+        }
+
+        collection.findOne({'_id': new ObjectID(id)}, function(err, user) {
+            if (err) {
+                res.send({'error' : err.errmsg});
+                return;
+            }
+
+            if (!user) {
+                res.status(404);
+                res.json({
+                    success: false,
+                    message: "User not found.",
+                });
+                res.end();
+                return;
+            } else {
+                res.send(user);
+                return;
+            }
+        });
+    });
+});
+
+apiRoutes.post('/users', function(req, res, next) {
+    var user = req.body;
+    if (!(user.username && user.password && user.confirmPassword)) {
+        errorResponse(res, 400, "username, password, confirmPassword required.");
+        return;
+    }
+    if (user.password != user.confirmPassword) {
+        errorResponse(res, 400, "password and confirmPassword must match.");
+        return;
+    }
+    delete user.confirmPassword;
+
+    console.log('Creating new user');
+    db.collection('users', function(err, collection) {
+        if (err) {
+            res.send({'error' : err.errmsg});
+            return;
+        }
+
+        // check if id already in use
+        collection.findOne({'_id': new ObjectID(user._id)}, function(err, item) {
+            if (err) {
+                res.send({'error' : err.errmsg});
+                return;
+            }
+
+            // if in use, return error
+            if (item) {
+                res.status(403);
+                res.json({
+                    success : false,
+                    message : "id in use."
+                });
+                res.end();
+            } else {
+                collection.insertOne(user, {safe:true}, function(err, result) {
+                    if (err) {
+                        res.send({'error' : err.errmsg});
+                        return;
+                    }
+
+                    console.log('Success: ' + JSON.stringify(result[0]));
+                    res.send(result[0]);
+                });
+            } 
+        });
+    });
+});
+
+apiRoutes.put('/user/:id', function(req, res, next) {
+    var id = req.params.id;
+    var user = req.body;
+    if (!(user.username && user.password && user.confirmPassword)) {
+        errorResponse(res, 400, "username, password, confirmPassword required.");
+        return;
+    }
+    if (user.password != user.confirmPassword) {
+        errorResponse(res, 400, "password and confirmPassword must match.");
+        return;
+    }
+    delete user.confirmPassword;
+
+    delete article._id;
+
+    db.collection('users', function(err, collection) {
+        if (err) {
+            res.send({'error' : err.errmsg});
+            return;
+        }
+
+        collection.findOne({'_id': new ObjectID(id)}, function(err, oldUser) {
+            if (err) {
+                res.send({'error' : err.errmsg});
+                return;
+            }
+
+            if (!oldUser) {
+                res.status(404);
+                res.json({
+                    success: false,
+                    message: "User not found.",
+                });
+                res.end();
+                return;
+            }
+
+            console.log('Updating user: ' + user._id);
+            collection.update({'_id': new ObjectID(id)}, user, {safe:true}, function(err, result) {
+                if (err) {
+                    res.send({'error' : err.errmsg});
+                    return;
+                }
+                console.log('' + result + ' user updated');
+                res.send(user);
+            });
+        });
+    });
+});
+
+apiRoutes.delete('/users/:id', function(req, res, next) {
+    var id = req.params.id;
+
+    db.collection('users', function(err, collection) {
+        if (err) {
+            res.send({'error' : err.errmsg});
+            return;
+        }
+
+        collection.findOne({'_id': new ObjectID(id)}, function(err, user) {
+            if (err) {
+                res.send({'error' : err.errmsg});
+                return;
+            }
+
+            if (!user) {
+                res.status(404);
+                res.json({
+                    success: false,
+                    message: "User not found.",
+                });
+                res.end();
+                return;
+            }
+
+            console.log('Deleting user: ' + user._id);
+            collection.remove({'_id': new ObjectID(id)}, {safe:true}, function(err, result) {
+                if (err) {
+                    res.send({'error' : err.errmsg});
+                    return;
+                }
+
+                console.log('' + result + ' user deleted');
+                res.send(req.body);
+            });
+        });
+    }); 
+});
 
 // ARTICLES
 apiRoutes.get('/articles', function(req, res, next) {
@@ -167,7 +488,7 @@ apiRoutes.post('/articles', function(req, res, next) {
                 });
                 res.end();
             } else {
-                collection.insert(article, {safe:true}, function(err, result) {
+                collection.insertOne(article, {safe:true}, function(err, result) {
                     if (err) {
                         res.send({'error' : error.errmsg});
                         return;
@@ -272,7 +593,7 @@ apiRoutes.post('/images', upload.single('filename'), function(req, res, next) {
         res.status(400).end()
     } else {
         // res.send(req.files);
-        console.log('Creating new image ' + id);
+        console.log('Creating new image');
         res.send(req.file);
         res.status(200).end()
     }
