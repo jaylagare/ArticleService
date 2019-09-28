@@ -13,37 +13,52 @@ Run `npm install` to build the project.
 ## ROUTES
 
 POST /login
-	username
-	password
+	JSON:  
+		username (required)
+		password (required)
 
-Once authenticated you can access the secure routes by adding token returned by login under header key x-access-token 
+Once authenticated you can access the secure routes by adding the security token returned by login under header key x-access-token 
 
 GET /users  
+
 POST /users  
-	username  
-	password  
-	confirmPassword  
+	JSON:  
+		username  
+		password (required)  
+		confirmPassword (required)  
+
 PUT /users/id  
-	username  
-	password  
-	confirmPassword  
+	JSON:  
+		username  
+		password (required)  
+		confirmPassword (required)  
+
 DELETE /users/id  
+
 GET /articles  
+
 POST /articles  
-	title  
-	image  
-	description  
-	publishDate  
-	modifyDate  
+	JSON:  
+		title  
+		image  
+		description  
+		publishDate  
+		modifyDate  
+
 PUT /articles/id  
-	title  
-	image  
-	description  
-	publishDate  
-	modifyDate  
+	JSON:  
+		title  
+		image  
+		description  
+		publishDate  
+		modifyDate  
+
 DELETE /articles/id  
+
 POST /images  
-	filename (type file)  
+	Accepts file upload through form  
+    action="/images" enctype="multipart/form-data" method="POST" type="file" name="filename"  
+
 GET /images/id  
 
 
