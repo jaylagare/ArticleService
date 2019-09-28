@@ -332,7 +332,7 @@ apiRoutes.put('/users/:id', function(req, res, next) {
     }
     delete user.confirmPassword;
 
-    delete article._id;
+    delete user._id;
 
     db.collection('users', function(err, collection) {
         if (err) {
