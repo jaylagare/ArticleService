@@ -21,9 +21,9 @@ POST /login
 		username (required)  
 		password (required)  
 	RESPONSE:  
-		200 security token
-		403 if wrong login credentials
-		501 if system error. Contact administrator of service.
+		200 security token.  
+		403 if wrong login credentials.  
+		501 if system error. Contact administrator of service.  
 
 ## SECURE ROUTES
 
@@ -142,17 +142,21 @@ DELETE /articles/_id_
 
 POST /images  
 	DESCRIPTION:  
-		Accepts image file upload through form submission.
+		Accepts image file upload through form submission. Form attribute: action="/images" enctype="multipart/form-data" method="POST" type="file" name="filename".  
 	HEADER:  
 		x-access-token: _security token returned by login_  
 		content-type: application/json  
-    action="/images" enctype="multipart/form-data" method="POST" type="file" name="filename"  
+	RESPONSE:  
+		200 JSON of image metadata.  
+    
 
 GET /images/_id_  
 	DESCRIPTION:  
 		Get image.  
 	HEADER:  
 		content-type: application/json  
+	RESPONSE:  
+		200 image  
 
 
 
