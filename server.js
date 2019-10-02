@@ -144,6 +144,57 @@ app.post('/login', function(req, res) {
     });
 });
 
+// apiRoutes.get('/images/:id', function(req, res, next) {
+app.get('/images/:id', function(req, res, next) {
+    var id = req.params.id;
+
+    console.log('Retrieving image ' + id);
+
+    var options = {
+            root: __dirname + '/images',
+            dotfiles: 'deny',
+            headers: {
+            'x-timestamp': Date.now(),
+            'x-sent': true
+        }
+    };
+
+    var filename = __dirname + "/images/"+id;
+
+    // get content type using file-type (fast, reads part of header only)
+    fs.open(filename, 'r', function(err, fd) {
+        if (err) {
+            // throw err;
+            res.status(404).end(); // probably file not found
+            return;
+        }
+
+        var data = new Buffer(100);
+        fs.read(fd, data, 0, 100, 0, function(err, num) {
+            if (err) throw err;
+
+            // get content type using file-type
+            try{
+                var type = fileType(data).mime;
+
+                // set content type
+                res.setHeader('Content-Type', type);
+            }catch(e) {}
+
+            res.sendFile(id, options, function (err) {
+                if (err) {
+                    console.log(err);
+                    res.status(err.status).end();
+                } else {
+                    console.log('Sent image ' + id);
+                    res.status(200).end();
+                }
+            }); 
+        });
+    });
+});
+
+
 // SECURED ROUTES 
 // TODO: SECURE THESE ENDPOINTS WITH APPROPRIATE AUTHENTICATION/AUTHORIZATION MECHANISM
 // get an instance of the router for api routes
@@ -599,54 +650,7 @@ apiRoutes.post('/images', upload.single('filename'), function(req, res, next) {
     }
 });
 
-apiRoutes.get('/images/:id', function(req, res, next) {
-    var id = req.params.id;
-
-    console.log('Retrieving image ' + id);
-
-    var options = {
-            root: __dirname + '/images',
-            dotfiles: 'deny',
-            headers: {
-            'x-timestamp': Date.now(),
-            'x-sent': true
-        }
-    };
-
-    var filename = __dirname + "/images/"+id;
-
-    // get content type using file-type (fast, reads part of header only)
-    fs.open(filename, 'r', function(err, fd) {
-        if (err) {
-            // throw err;
-            res.status(404).end(); // probably file not found
-            return;
-        }
-
-        var data = new Buffer(100);
-        fs.read(fd, data, 0, 100, 0, function(err, num) {
-            if (err) throw err;
-
-            // get content type using file-type
-            try{
-                var type = fileType(data).mime;
-
-                // set content type
-                res.setHeader('Content-Type', type);
-            }catch(e) {}
-
-            res.sendFile(id, options, function (err) {
-                if (err) {
-                    console.log(err);
-                    res.status(err.status).end();
-                } else {
-                    console.log('Sent image ' + id);
-                    res.status(200).end();
-                }
-            }); 
-        });
-    });
-});
+// moved get to non-secured endpoint
 
 apiRoutes.delete('/images/:id', function(req, res, next) {
     var id = req.params.id;
